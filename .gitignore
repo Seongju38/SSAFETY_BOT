@@ -1,0 +1,15 @@
+# Python venv
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Spyder, VSCode
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
