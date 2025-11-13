@@ -1,0 +1,13 @@
+< Vistion 환경 구축 (RealSense + YOLO 설치) >
+1. python 3.10.XX 설치
+2. python 가상환경 생성
+    py -3.10 -m venv .venv
+3. 가상환경 실행
+    cd .venv\Scripts
+    . \activate
+4. OpenCV 설치
+    pip install opencv-python
+5. YOLOv8 설치 (ultralytics)
+    pip install ultralytics
+6. RealSense Python SDK 설치 (pyrealsense2)
+    pip install pyrealsense2
