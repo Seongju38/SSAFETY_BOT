@@ -4,7 +4,7 @@
     py -3.10 -m venv .venv
 3. 가상환경 실행
     cd .venv\Scripts
-    . \activate
+    .\activate
 4. OpenCV 설치
     pip install opencv-python
 5. YOLOv8 설치 (ultralytics)
