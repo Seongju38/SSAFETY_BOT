@@ -41,28 +41,55 @@ export default function DashboardPage() {
   const currentKit = KIT_PRESETS[selectedEvent];
 
   const handleDispatch = async () => {
-    setIsSending(true);
+    try {
+      setIsSending(true);
 
-    // /api/items 로 POST 요청 보내기
-    await fetch("/api/items", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      const payload = {
         type: selectedEvent,
         kit: currentKit.items,
+        // 나중에 실제 값으로 교체할 가짜 데이터들
+        patientId: "TEST-PATIENT-001",
+        location: {
+          area: "라인3-컨베이어A",
+          x: 12.3,
+          y: 4.5,
+        },
         timestamp: new Date().toISOString(),
-      }),
-    });
+      };
 
-    const now = new Date().toLocaleTimeString();
-    setLogs((prev) => [
-      `[${now}] 로봇 파견 요청 - 유형: ${
-        EVENT_OPTIONS.find((e) => e.value === selectedEvent)?.label
-      }`,
-      ...prev,
-    ]);
+      const res = await fetch("/api/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    setIsSending(false);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      const label =
+        EVENT_OPTIONS.find((e) => e.value === selectedEvent)?.label ??
+        selectedEvent;
+
+      const now = new Date().toLocaleTimeString();
+
+      setLogs((prev) => [
+        `[${now}] 로봇 파견 요청 - 유형: ${
+          EVENT_OPTIONS.find((e) => e.value === selectedEvent)?.label
+        } · jobId: ${data.jobId ?? "N/A"}`,
+        ...prev,
+      ]);
+    } catch (err) {
+      const now = new Date().toLocaleTimeString();
+      setLogs((prev) => [
+        `[${now}] 로봇 파견 실패: ${(err as Error).message}`,
+        ...prev,
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
