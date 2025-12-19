@@ -102,15 +102,17 @@ export default function DashboardPage() {
 
       {/* 메인 레이아웃 */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 p-6">
-        {/* 왼쪽: 쓰러짐 캡처 프레임 */}
+        {/* 왼쪽: 낙상 감지 실시간 영상 */}
         <section className="lg:col-span-2 bg-slate-900 rounded-2xl border border-slate-800 p-4 flex flex-col">
           <h2 className="text-sm font-medium text-slate-200 mb-3">
-            쓰러짐 캡처 프레임
+            낙상 감지 실시간 영상
           </h2>
           <div className="flex-1 rounded-xl border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-sm">
-            {/* TODO: 나중에 실제 이미지 캡처 썸네일로 교체 */}
-            아직 이벤트가 없습니다. 쓰러짐이 감지되면 여기에 프레임이
-            표시됩니다.
+            <img
+              src="http://localhost:8000/stream"
+              alt="Fall stream"
+              className="w-full h-full object-contain rounded-xl"
+            />
           </div>
         </section>
 
