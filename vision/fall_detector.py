@@ -2,6 +2,25 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 from ultralytics import YOLO
+import threading
+
+# -----------------------------
+# MJPEG 스트리밍용 공유 프레임
+# -----------------------------
+_latest_jpeg = None
+_lock = threading.Lock()
+
+def get_latest_jpeg():
+    with _lock:
+        return _latest_jpeg
+
+def _set_latest_frame_bgr(frame_bgr):
+    """BGR 이미지를 JPEG bytes로 변환해서 최신 프레임으로 저장"""
+    global _latest_jpeg
+    ok, buf = cv2.imencode(".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+    if ok:
+        with _lock:
+            _latest_jpeg = buf.tobytes()
 
 # ------------------------------------
 # posture 판단 함수 (사람 한 명 기준)
@@ -25,7 +44,7 @@ def get_posture(kpts, bbox):
     return posture
 
 
-def main():
+def main(show_local_window: bool = True):
     # -----------------------
     # 1) RealSense 설정
     # -----------------------
@@ -91,11 +110,14 @@ def main():
                         2,
                     )
 
-            cv2.imshow("Multi-person Fall Detector", annotated)
+            # 웹으로 보낼 최신 프레임 업데이트
+            _set_latest_frame_bgr(annotated)
 
-            # 종료
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            # show_local_window = True / False 로 로컬 창 확인 Test
+            if show_local_window:
+                cv2.imshow("Multi-person Fall Detector", annotated)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
     finally:
         pipeline.stop()
