@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'pickandplace = dobot_control.pick_and_place:main'
+            'pickandplace = dobot.pick_and_place:main',
+            'colortargetselector = dobot.emergency_color_target_selector:main'
         ],
     },
 )
