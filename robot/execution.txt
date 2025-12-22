@@ -1,0 +1,10 @@
+<dobot>
+1. bringup
+    ros2 launch dobot_bringup dobot_magician_control_system.launch.py
+2. homing
+    ros2 service call /dobot_homing_service dobot_msgs/srv/ExecuteHomingProcedure
+3. 코드 실행
+    ros2 run dobot pickandplace
+    ros2 run [패키지이름] [노드이름]
+    
+-> 추후 launch 파일로 생성하기
