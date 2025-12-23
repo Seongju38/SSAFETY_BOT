@@ -73,7 +73,6 @@ class RoboDKController:
         # person을 눕히는(회전) 효과
         pose = self.person.Pose()
         if fallen:
-            # X축으로 90도 눕힌 느낌(필요하면 축 바꿔서 조정)
             new_pose = pose * robomath.roty(-50 * robomath.pi / 180.0)
         else:
             new_pose = pose
@@ -171,91 +170,3 @@ class RoboDKController:
         self.move_turtlebot_near_person()
 
         return {"ok": True, "disease": disease_key, "box": plan.box_name}
-
-# from robodk import robolink
-# from robodk import robomath
-
-# class RoboDKController:
-#     def __init__(self, rdk_path: str | None = None):
-#         self.RDK = robolink.Robolink()
-
-#         # 필요하면 파일을 열기 (이미 RoboDK에서 열려있다면 생략 가능)
-#         if rdk_path:
-#             self.RDK.AddFile(rdk_path)
-
-#         self.robot = self._req_item("RB16-900E", robolink.ITEM_TYPE_ROBOT)
-#         self.tool  = self._req_item("Kinova Gen3 Lite Gripper", robolink.ITEM_TYPE_TOOL)
-#         self.tb    = self._req_item("turtlebot3_waffle", robolink.ITEM_TYPE_OBJECT)
-#         self.person= self._req_item("person", robolink.ITEM_TYPE_OBJECT)
-
-#         # Targets (추천: 미리 만들어 둔 타겟) ????????????????????????????????????????????????????
-#         self.t_place_on_tb = self._req_item("T_PLACE_ON_TB", robolink.ITEM_TYPE_TARGET)
-
-#         # 질병 → 박스/픽타겟 매핑
-#         self.map = {
-#             "CPR":      ("BOX_RED",   "T_PICK_BOX_RED"),
-#             "BURN":     ("BOX_YELLOW","T_PICK_BOX_YELLOW"),
-#             "BLEEDING": ("BOX_GREEN", "T_PICK_BOX_GREEN"),
-#         }
-
-#     def _req_item(self, name: str, item_type: int):
-#         it = self.RDK.Item(name, item_type)
-#         if not it.Valid():
-#             raise RuntimeError(f"RoboDK item not found or invalid: {name} (type={item_type})")
-#         return it
-
-#     def _move_to_target(self, target_name: str):
-#         t = self._req_item(target_name, robolink.ITEM_TYPE_TARGET)
-#         self.robot.MoveJ(t)
-
-#     def _attach_box_to_tool(self, box):
-#         # 박스를 로봇 툴에 붙여서 "집기"
-#         box.setParentStatic(self.tool)
-
-#     def _attach_box_to_tb(self, box):
-#         # 박스를 터틀봇에 붙여서 "적재"
-#         box.setParentStatic(self.tb)
-
-#     def dispatch_emergency_box(self, disease_key: str, person_xyz: tuple[float,float,float] | None = None):
-#         """
-#         disease_key: 웹에서 넘어오는 질병/응급키워드
-#         person_xyz: (선택) 사람 위치를 웹/비전에서 받아서 person 오브젝트를 그 위치로 이동시키고 싶을 때
-#         """
-#         if disease_key not in self.map:
-#             raise ValueError(f"Unknown disease_key: {disease_key}. available={list(self.map.keys())}")
-
-#         box_name, pick_target_name = self.map[disease_key]
-
-#         box = self._req_item(box_name, robolink.ITEM_TYPE_OBJECT)
-
-#         # (선택) 사람 위치 반영: Person 오브젝트 이동
-#         if person_xyz:
-#             x, y, z = person_xyz
-#             pose = robomath.transl(x, y, z)
-#             self.person.setPose(pose)
-
-#         # 1) 박스 픽 위치로 이동
-#         self._move_to_target(pick_target_name)
-
-#         # 2) 집기 (attach)
-#         self._attach_box_to_tool(box)
-
-#         # 3) 터틀봇 적재 위치로 이동
-#         self.robot.MoveJ(self.t_place_on_tb)
-
-#         # 4) 터틀봇에 적재 (detach from tool → attach to tb)
-#         self._attach_box_to_tb(box)
-
-#         # 5) 터틀봇 이동(시뮬) : 가장 쉬운 방법은 TB 오브젝트를 "사람 근처 좌표"로 이동
-#         self.move_turtlebot_to_person()
-
-#         return {"ok": True, "box": box_name, "disease": disease_key}
-
-#     def move_turtlebot_to_person(self):
-#         # 아주 단순 버전: TURTLEBOT 오브젝트를 PERSON 포즈 근처로 순간이동
-#         # 더 그럴듯하게 하려면, 웨이포인트 여러 개로 보간해서 조금씩 이동시키면 됨.
-#         person_pose = self.person.Pose()
-#         # person_pose는 4x4 포즈. 여기서 transl만 쓰는 예시:
-#         px, py, pz = person_pose.Pos()
-#         tb_pose = robomath.transl(px - 0.5, py, pz)  # 0.5m 옆에 정차 느낌
-#         self.tb.setPose(tb_pose)
