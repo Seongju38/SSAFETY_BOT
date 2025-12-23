@@ -4,6 +4,8 @@ import numpy as np
 from ultralytics import YOLO
 import threading
 
+import time
+
 # -----------------------------
 # MJPEG 스트리밍용 공유 프레임
 # -----------------------------
@@ -43,8 +45,25 @@ def get_posture(kpts, bbox):
 
     return posture
 
+# ------------------------------------
+# fall 감지 시 eventId 올려 주는 전역 상태 추가
+# ------------------------------------
+_fall_event_id = None
+_last_fall_time = 0.0
+_COOLDOWN_SEC = 5.0
 
-def main(show_local_window: bool = True, cam_index: int = 0):
+def get_fall_event_id():
+    return _fall_event_id
+
+def _mark_fall_event():
+    global _fall_event_id, _last_fall_time
+    now = time.time()
+    if now - _last_fall_time < _COOLDOWN_SEC:
+        return
+    _last_fall_time = now
+    _fall_event_id = int(now)  # 간단하게 timestamp를 ID로 사용
+
+def run_detector(show_local_window: bool = True, cam_index: int = 0):
     # -----------------------
     # 1) RealSense 설정
     # -----------------------
@@ -111,6 +130,7 @@ def main(show_local_window: bool = True, cam_index: int = 0):
                     else:
                         color = (0, 0, 255)      # 빨강
                         label = "FALL"
+                        _mark_fall_event()
 
                     # 두꺼운 테두리로 박스 다시 강조
                     cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 3)
@@ -142,4 +162,4 @@ def main(show_local_window: bool = True, cam_index: int = 0):
 
 
 if __name__ == "__main__":
-    main()
+    run_detector()

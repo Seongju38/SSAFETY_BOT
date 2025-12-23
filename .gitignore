@@ -16,3 +16,5 @@ Thumbs.db
 
 # AI
 *.pt
+
+.env
