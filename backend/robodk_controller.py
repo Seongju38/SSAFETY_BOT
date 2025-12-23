@@ -70,19 +70,21 @@ class RoboDKController:
         self.person.setPose(pose)
 
     def _set_person_fallen(self, fallen: bool):
-        # person을 눕히는(회전) 효과
-        pose = self.person.Pose()
+        # pose = self.person.Pose()
+        pose0 = self.person.Pose()
+        x, y, z = pose0.Pos()
         if fallen:
-            new_pose = pose * robomath.roty(-50 * robomath.pi / 180.0)
+            new_pose = robomath.transl(x, y, z) * robomath.rotx(-90 * robomath.pi / 180.0)
+            
+            self.person.setPose(new_pose)
         else:
-            new_pose = pose
-        self.person.setPose(new_pose)
+            self.person.setPose(pose0)
 
     def _attach_to(self, child_item, parent_item):
         # "집기/적재"의 핵심: parent-child 관계를 바꿔서 붙임
         child_item.setParentStatic(parent_item)
 
-    def move_turtlebot_near_person(self, offset_xyz=(0, 300, 0)):
+    def move_turtlebot_near_person(self, offset_xyz=(0, 900, 0)):
         # 최종 목적지 (사람 근처)
         px, py, pz = self.person.Pose().Pos()
         ox, oy, oz = offset_xyz
