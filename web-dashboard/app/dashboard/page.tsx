@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const EVENT_OPTIONS = [
   { value: "exhaustion", label: "탈진" },
@@ -37,6 +37,9 @@ export default function DashboardPage() {
   const [selectedEvent, setSelectedEvent] = useState<string>("exhaustion");
   const [logs, setLogs] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
+
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const lastPlayedRef = useRef<number | null>(null);
 
   const currentKit = KIT_PRESETS[selectedEvent];
 
@@ -92,12 +95,46 @@ export default function DashboardPage() {
     }
   };
 
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:8000/alert/last");
+        const data = await res.json();
+
+        const eventId = data.eventId as number | null;
+        if (!eventId) return;
+
+        if (lastPlayedRef.current === eventId) return;
+
+        // 오디오가 아직 생성되지 않았으면 서버에 생성 요청(간단 버전)
+        await fetch("http://localhost:8000/alert/from-fall", {
+          method: "POST",
+        });
+
+        if (soundEnabled) {
+          const audio = new Audio("http://localhost:8000/alert/audio");
+          await audio.play();
+          lastPlayedRef.current = eventId;
+        }
+      } catch {
+        // 서버 죽었을 때 조용히 무시하거나 상태 표시
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [soundEnabled]);
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50 flex flex-col">
       {/* 상단 헤더 */}
       <header className="border-b border-slate-800 px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">SSAFETY BOT · 관리자 대시보드</h1>
-        <span className="text-xs text-slate-400">Login Section</span>
+        <button
+          onClick={() => setSoundEnabled(true)}
+          className="px-3 py-2 rounded-lg bg-slate-800 text-slate-100 text-sm"
+        >
+          🔊 알림 소리 켜기
+        </button>
       </header>
 
       {/* 메인 레이아웃 */}
