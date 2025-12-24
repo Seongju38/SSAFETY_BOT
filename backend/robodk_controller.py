@@ -1,11 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, Any
 
 from robodk import robolink
 from robodk import robomath
-
 import time
+
 
 @dataclass
 class DiseasePlan:
@@ -36,9 +36,10 @@ class RoboDKController:
 
         # 질병 키 -> (박스, 픽 타겟)
         self.plans: Dict[str, DiseasePlan] = {
-            "CPR": DiseasePlan("box_red", "T_PICK_BOX_RED"),
-            "BURN": DiseasePlan("box_yellow", "T_PICK_BOX_YELLOW"),
-            "BLEEDING": DiseasePlan("box_green", "T_PICK_BOX_GREEN"),
+            "EXH": DiseasePlan("box_red", "T_PICK_BOX_RED"),
+            "CHR": DiseasePlan("box_blue", "T_PICK_BOX_BLUE"),
+            "BLE": DiseasePlan("box_green", "T_PICK_BOX_GREEN"),
+            "COL": DiseasePlan("box_yellow", "T_PICK_BOX_YELLOW"),
         }
 
         # Items
@@ -70,21 +71,17 @@ class RoboDKController:
         self.person.setPose(pose)
 
     def _set_person_fallen(self, fallen: bool):
-        # pose = self.person.Pose()
         pose0 = self.person.Pose()
         x, y, z = pose0.Pos()
         if fallen:
             new_pose = robomath.transl(x, y, z) * robomath.rotx(-90 * robomath.pi / 180.0)
-            
             self.person.setPose(new_pose)
-        else:
-            self.person.setPose(pose0)
 
     def _attach_to(self, child_item, parent_item):
-        # "집기/적재"의 핵심: parent-child 관계를 바꿔서 붙임
         child_item.setParentStatic(parent_item)
 
-    def move_turtlebot_near_person(self, offset_xyz=(0, 900, 0)):
+    # ========= Turtlebot 이동(시뮬) =========
+    def move_turtlebot_near_person(self, offset_xyz=(2000, 0, -350)):
         # 최종 목적지 (사람 근처)
         px, py, pz = self.person.Pose().Pos()
         ox, oy, oz = offset_xyz
@@ -123,52 +120,92 @@ class RoboDKController:
             self.tb.setPose(robomath.transl(x, y, z))
             time.sleep(dt)
 
-    def move_turtlebot_via_door(
+    # ========= 쓰러짐 감지 (pose 기반) =========
+    def detect_person_fallen(
         self,
-        door_xyz,
-        target_xyz,
-    ):
-        # 1. 문 앞으로 이동
-        self.move_turtlebot_smooth(door_xyz)
+        tilt_deg_threshold: float = 60.0,
+        z_threshold_mm: float = 250.0,
+        use_z: bool = True,
+        use_abs: bool = True,
+    ) -> Dict[str, Any]:
+        pose = self.person.PoseAbs() if use_abs else self.person.Pose()
+        x, y, z, r, p, w = robomath.pose_2_xyzrpw(pose)
 
-        # 2. 문 통과 (조금 더 안쪽)
-        dx, dy, dz = door_xyz
-        door_pass_xyz = (dx + 0.6, dy, dz)  # 문 두께만큼
-        self.move_turtlebot_smooth(door_pass_xyz)
+        tilt_bad = (abs(r) >= tilt_deg_threshold) or (abs(p) >= tilt_deg_threshold)
+        z_bad = (z <= z_threshold_mm) if use_z else False
+        fallen = tilt_bad or z_bad
 
-        # 3. 최종 목적지
-        self.move_turtlebot_smooth(target_xyz)
+        if tilt_bad and z_bad:
+            reason = "tilt+low_z"
+        elif tilt_bad:
+            reason = "tilt"
+        elif z_bad:
+            reason = "low_z"
+        else:
+            reason = "ok"
 
-    def dispatch_emergency_box(
-        self,
-        disease_key: str,
-        person_pose=None, 
-        fallen: bool = True,
-    ):
+        return {
+            "fallen": bool(fallen),
+            "reason": reason,
+            "x": float(x),
+            "y": float(y),
+            "z": float(z),
+            "roll": float(r),
+            "pitch": float(p),
+            "yaw": float(w),
+        }
+
+    # ========= dispatch를 단계별로 쪼갠 메서드들 =========
+    def pick_box(self, disease_key: str):
         if disease_key not in self.plans:
             raise ValueError(f"Unknown disease_key='{disease_key}'. available={list(self.plans.keys())}")
 
         plan = self.plans[disease_key]
         box = self._req(plan.box_name, robolink.ITEM_TYPE_OBJECT)
 
-        # (가짜 데이터) 사람 위치/쓰러짐 상태
-        if person_pose:
-            self._set_person_pose_mat(person_pose)
-        self._set_person_fallen(fallen)
-
         # 1) 박스 픽
         self._movej_target(plan.pick_target)
-        time.sleep(0.5)
-        self._attach_to(box, self.tool)          # 로봇이 박스 집기
-        time.sleep(0.5)
+        time.sleep(0.3)
+        self._attach_to(box, self.tool)
+        time.sleep(0.3)
+
+        return {"box": plan.box_name, "pick_target": plan.pick_target}
+
+    def load_box_on_turtlebot(self, disease_key: str):
+        plan = self.plans[disease_key]
+        box = self._req(plan.box_name, robolink.ITEM_TYPE_OBJECT)
 
         # 2) 터틀봇 적재
         self.robot.MoveJ(self.t_place_on_tb)
-        time.sleep(0.5)
-        self._attach_to(box, self.tb)            # 터틀봇에 박스 적재
-        time.sleep(0.5)
+        time.sleep(0.3)
+        self._attach_to(box, self.tb)
+        time.sleep(0.3)
 
+        return {"box": plan.box_name, "place_target": self.place_on_tb_target}
+
+    def navigate_turtlebot_to_person(self):
         # 3) 터틀봇 이동(시뮬)
         self.move_turtlebot_near_person()
+        return {"ok": True}
 
+    def dispatch_emergency_box(
+        self,
+        disease_key: str,
+        person_pose=None,
+        fallen: bool = True,
+    ):
+        # 기존 원샷 함수는 유지 (원하면 안 써도 됨)
+        if disease_key not in self.plans:
+            raise ValueError(f"Unknown disease_key='{disease_key}'. available={list(self.plans.keys())}")
+
+        if person_pose:
+            self._set_person_pose_mat(person_pose)
+        if fallen:
+            self._set_person_fallen(True)
+
+        self.pick_box(disease_key)
+        self.load_box_on_turtlebot(disease_key)
+        self.navigate_turtlebot_to_person()
+
+        plan = self.plans[disease_key]
         return {"ok": True, "disease": disease_key, "box": plan.box_name}
