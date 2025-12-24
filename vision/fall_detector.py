@@ -1,8 +1,10 @@
 import cv2
 import numpy as np
-import pyrealsense2 as rs
+# import pyrealsense2 as rs
 from ultralytics import YOLO
 import threading
+
+import time
 
 # -----------------------------
 # MJPEG 스트리밍용 공유 프레임
@@ -43,15 +45,44 @@ def get_posture(kpts, bbox):
 
     return posture
 
+# ------------------------------------
+# fall 감지 시 eventId 올려 주는 전역 상태 추가
+# ------------------------------------
+_fall_event_id = None
+_last_fall_time = 0.0
+_COOLDOWN_SEC = 5.0
 
-def main(show_local_window: bool = True):
+def get_fall_event_id():
+    return _fall_event_id
+
+def _mark_fall_event():
+    global _fall_event_id, _last_fall_time
+    now = time.time()
+    if now - _last_fall_time < _COOLDOWN_SEC:
+        return
+    _last_fall_time = now
+    _fall_event_id = int(now)  # 간단하게 timestamp를 ID로 사용
+
+def run_detector(show_local_window: bool = True, cam_index: int = 0):
     # -----------------------
     # 1) RealSense 설정
     # -----------------------
-    pipeline = rs.pipeline()
-    config = rs.config()
-    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-    pipeline.start(config)
+    # pipeline = rs.pipeline()
+    # config = rs.config()
+    # config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+    # pipeline.start(config)
+
+    # -----------------------
+    # 1) Webcam 설정
+    # ----------------------- 
+    cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
+    if not cap.isOpened():
+        raise RuntimeError(...)
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
 
     # -----------------------
     # 2) YOLO Pose 모델 로드
@@ -63,12 +94,16 @@ def main(show_local_window: bool = True):
     try:
         while True:
             # RealSense frame 받기
-            frames = pipeline.wait_for_frames()
-            color_frame = frames.get_color_frame()
-            if not color_frame:
-                continue
+            # frames = pipeline.wait_for_frames()
+            # color_frame = frames.get_color_frame()
+            # if not color_frame:
+            #     continue
 
-            frame = np.asanyarray(color_frame.get_data())
+            # frame = np.asanyarray(color_frame.get_data())
+
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                continue
 
             # YOLO Pose 추론
             results = model(frame, verbose=False)
@@ -95,6 +130,7 @@ def main(show_local_window: bool = True):
                     else:
                         color = (0, 0, 255)      # 빨강
                         label = "FALL"
+                        _mark_fall_event()
 
                     # 두꺼운 테두리로 박스 다시 강조
                     cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 3)
@@ -120,9 +156,10 @@ def main(show_local_window: bool = True):
                     break
 
     finally:
-        pipeline.stop()
+        # pipeline.stop()
+        cap.release()
         cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    main()
+    run_detector()

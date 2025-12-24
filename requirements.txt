@@ -17,3 +17,6 @@
     pip install fastapi uvicorn
 2. 서버 실행 (robot 폴더의 부모에서 실행)
     uvicorn robot.server.main:app --host 0.0.0.0 --port 8000
+
+<.env 사용>
+pip install python-dotenv
