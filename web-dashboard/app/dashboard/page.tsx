@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const EVENT_OPTIONS = [
   { value: "exhaustion", label: "탈진" },
@@ -37,6 +37,11 @@ export default function DashboardPage() {
   const [selectedEvent, setSelectedEvent] = useState<string>("exhaustion");
   const [logs, setLogs] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
+
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const lastPlayedRef = useRef<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentEventRef = useRef<number | null>(null);
 
   const currentKit = KIT_PRESETS[selectedEvent];
 
@@ -92,12 +97,90 @@ export default function DashboardPage() {
     }
   };
 
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch("http://localhost:8000/alert/last");
+        const data = await res.json();
+
+        const eventId = data.eventId as number | null;
+        if (!eventId) return;
+
+        if (lastPlayedRef.current === eventId) return;
+        if (currentEventRef.current === eventId) return;
+
+        // 오디오가 아직 생성되지 않았으면 서버에 생성 요청(간단 버전)
+        await fetch("http://localhost:8000/alert/from-fall", {
+          method: "POST",
+        });
+
+        if (soundEnabled) {
+          await playVoice(
+            `http://localhost:8000/alert/audio?ts=${Date.now()}`,
+            eventId
+          );
+        }
+      } catch (e) {
+        // 서버 죽었을 때 조용히 무시하거나 상태 표시
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [soundEnabled]);
+
+  const playVoice = async (url: string, eventId: number) => {
+    stopVoice(false); // 기존 소리만 끊기(아래 stopVoice에 옵션 추가)
+
+    currentEventRef.current = eventId;
+
+    const audio = new Audio(url);
+    audioRef.current = audio;
+
+    audio.onended = () => {
+      // 정상 재생 끝나면 처리 완료로 기록
+      lastPlayedRef.current = eventId;
+      currentEventRef.current = null;
+    };
+
+    try {
+      await audio.play();
+    } catch (e) {
+      console.error("Audio play failed:", e);
+    }
+  };
+
+  const stopVoice = (showToast: boolean = true) => {
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      a.currentTime = 0;
+    }
+
+    if (currentEventRef.current != null) {
+      lastPlayedRef.current = currentEventRef.current;
+      currentEventRef.current = null;
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-50 flex flex-col">
       {/* 상단 헤더 */}
-      <header className="border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-slate-800 px-6 py-4 flex items-center">
         <h1 className="text-xl font-semibold">SSAFETY BOT · 관리자 대시보드</h1>
-        <span className="text-xs text-slate-400">Login Section</span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => setSoundEnabled(true)}
+            className="px-3 py-2 rounded-lg bg-slate-800 text-slate-100 text-sm hover:bg-slate-700 transition-colors"
+          >
+            🔊 알림 소리 켜기
+          </button>
+          <button
+            onClick={() => stopVoice(false)}
+            className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 transition-colors"
+          >
+            ⏹ 음성 정지
+          </button>
+        </div>
       </header>
 
       {/* 메인 레이아웃 */}
