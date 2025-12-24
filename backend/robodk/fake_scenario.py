@@ -3,7 +3,7 @@ from pathlib import Path
 from robodk_controller import RoboDKController
 
 ROOT = Path(__file__).resolve().parents[2]  # project-root
-RDK_PATH = str(ROOT / "robodk" / "simulation" / "AI_industry_site.rdk")
+RDK_PATH = str(ROOT / "simulation" / "AI_industry_site.rdk")
 
 def main():
     # RoboDK가 열려있으면 rdk_path=None로 둬도 됨.
