@@ -1,0 +1,25 @@
+# colcon build
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+*.bag
+*.log
+*.db
+
+# Env
+.env
+.env.*
